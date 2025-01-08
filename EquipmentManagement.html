@@ -12,85 +12,60 @@
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 20px;
     }
     th, td {
+      border: 1px solid #ccc;
       padding: 10px;
       text-align: left;
-      border: 1px solid #ddd;
     }
     th {
+      position: relative;
       cursor: pointer;
-      background-color: #f8f9fa;
     }
-    th:hover {
-      background-color: #e9ecef;
+    th::after {
+      content: " ▼";
+      font-size: 12px;
+      color: #888;
+      position: absolute;
+      right: 10px;
     }
-    .filter-input {
-      display: none;
-      margin-top: 10px;
-    }
-    .filter-input input {
-      padding: 8px;
-      font-size: 16px;
-      width: 100%;
-    }
-    .filter-input button {
-      margin-top: 10px;
-      padding: 8px;
-      font-size: 14px;
-      cursor: pointer;
-      border: none;
-      border-radius: 5px;
-    }
-    .clear-filter {
+    #clearFilter {
       margin-top: 20px;
-      text-align: center;
-    }
-    .clear-filter button {
       padding: 10px;
-      font-size: 16px;
-      background-color: #f44336;
+      background-color: #4CAF50;
       color: white;
       border: none;
       border-radius: 5px;
       cursor: pointer;
     }
-    .clear-filter button:hover {
-      background-color: #c62828;
+    #clearFilter:hover {
+      background-color: #45a049;
     }
   </style>
 </head>
 <body>
   <h1>Equipment Management</h1>
-
   <table id="equipmentTable">
     <thead>
       <tr>
-        <th onclick="showFilter(0)">Plant No</th>
-        <th onclick="showFilter(1)">Reg. No</th>
-        <th onclick="showFilter(2)">Equipment Details</th>
-        <th onclick="showFilter(3)">Owner</th>
-        <th onclick="showFilter(4)">Location</th>
-        <th onclick="showFilter(5)">Remarks</th>
+        <th data-column="plantNo">Plant No</th>
+        <th data-column="regNo">Reg. No.</th>
+        <th data-column="equipmentDetails">Equipment Details</th>
+        <th data-column="owner">Owner</th>
+        <th data-column="location">Location</th>
+        <th data-column="remarks">Remarks</th>
       </tr>
     </thead>
     <tbody>
-      <!-- Rows will be dynamically populated -->
+      <!-- Data will be populated dynamically -->
     </tbody>
   </table>
-
-  <div class="filter-input" id="filterInputContainer">
-    <input type="text" id="filterInput" placeholder="Enter value to filter...">
-    <button onclick="applyFilter()">Apply Filter</button>
-    <button onclick="clearFilter()">Clear Filter</button>
-  </div>
+  <button id="clearFilter">Clear Filters</button>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
     import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
 
-    // Firebase configuration
     const firebaseConfig = {
       apiKey: "AIzaSyAXZgxM6PU-T3D2811KnBszblRWju7rv1Y",
       authDomain: "dws-management.firebaseapp.com",
@@ -104,76 +79,79 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    const tableBody = document.querySelector("#equipmentTable tbody");
-    let equipmentData = [];
-    let currentColumn = -1;
+    const equipmentTable = document.getElementById("equipmentTable");
+    const clearFilterButton = document.getElementById("clearFilter");
+    let originalData = [];
 
-    // Fetch data from Firestore
-    async function fetchData() {
-      try {
-        const querySnapshot = await getDocs(collection(db, "Equipment"));
-        querySnapshot.forEach((doc) => {
-          const data = doc.data();
-          const row = `
-            <tr>
-              <td>${data.plantNo || ""}</td>
-              <td>${doc.id || ""}</td> <!-- Use document ID for Reg. No -->
-              <td>${data.equipmentDetails || ""}</td>
-              <td>${data.owner || ""}</td>
-              <td>${data.location || ""}</td>
-              <td>${data.remarks || ""}</td>
-            </tr>
-          `;
-          tableBody.innerHTML += row;
-          equipmentData.push({
-            plantNo: data.plantNo || "",
-            regNo: doc.id || "", // Include the document ID
-            equipmentDetails: data.equipmentDetails || "",
-            owner: data.owner || "",
-            location: data.location || "",
-            remarks: data.remarks || ""
-          });
-        });
-      } catch (error) {
-        console.error("Error fetching data: ", error);
-        alert("Failed to fetch data from Firestore.");
-      }
+    // Fetch Equipment Data from Firestore
+    async function fetchEquipmentData() {
+      const equipmentCollection = collection(db, "Equipment");
+      const snapshot = await getDocs(equipmentCollection);
+      const data = [];
+
+      snapshot.forEach(doc => {
+        const rowData = doc.data();
+        rowData.regNo = doc.id; // Reg. No is the document ID
+        data.push(rowData);
+      });
+
+      return data;
     }
 
-    // Show filter input for the selected column
-    function showFilter(columnIndex) {
-      currentColumn = columnIndex;
-      const filterInputContainer = document.getElementById("filterInputContainer");
-      filterInputContainer.style.display = "block";
-      document.getElementById("filterInput").focus();
-    }
+    // Populate Table with Equipment Data
+    async function populateTable() {
+      const data = await fetchEquipmentData();
+      const tbody = equipmentTable.querySelector("tbody");
+      tbody.innerHTML = ""; // Clear existing rows
+      originalData = data; // Save original data for resetting filters
 
-    // Apply the filter
-    function applyFilter() {
-      const filterValue = document.getElementById("filterInput").value.toLowerCase();
-      const rows = tableBody.querySelectorAll("tr");
-
-      rows.forEach(row => {
-        const cellValue = row.cells[currentColumn]?.textContent.toLowerCase() || "";
-        row.style.display = cellValue.includes(filterValue) ? "" : "none";
+      data.forEach((row) => {
+        const newRow = tbody.insertRow();
+        newRow.innerHTML = `
+          <td>${row.plantNo || ""}</td>
+          <td>${row.regNo || ""}</td> <!-- Document ID -->
+          <td>${row.equipmentDetails || ""}</td>
+          <td>${row.owner || ""}</td>
+          <td>${row.location || ""}</td>
+          <td>${row.remarks || ""}</td>
+        `;
       });
     }
 
-    // Clear the filter
-    function clearFilter() {
-      const rows = tableBody.querySelectorAll("tr");
+    // Event Listener for Filtering Columns
+    equipmentTable.querySelector("thead").addEventListener("click", (event) => {
+      const header = event.target.closest("th");
+      if (!header) return;
 
-      rows.forEach(row => {
-        row.style.display = "";
+      const column = header.dataset.column;
+      const input = prompt(`Filter by ${column}:`, "");
+      if (input === null || input === "") return;
+
+      const filteredData = originalData.filter((row) => {
+        const value = column === "regNo" ? row[column] : row[column]?.toString().toLowerCase();
+        return value?.includes(input.toLowerCase());
       });
 
-      document.getElementById("filterInput").value = "";
-      document.getElementById("filterInputContainer").style.display = "none";
-      currentColumn = -1;
-    }
+      const tbody = equipmentTable.querySelector("tbody");
+      tbody.innerHTML = ""; // Clear existing rows
+      filteredData.forEach((row) => {
+        const newRow = tbody.insertRow();
+        newRow.innerHTML = `
+          <td>${row.plantNo || ""}</td>
+          <td>${row.regNo || ""}</td> <!-- Document ID -->
+          <td>${row.equipmentDetails || ""}</td>
+          <td>${row.owner || ""}</td>
+          <td>${row.location || ""}</td>
+          <td>${row.remarks || ""}</td>
+        `;
+      });
+    });
 
-    // Fetch and populate data on page load
-    fetchData();
+    // Clear Filters and Reset Table
+    clearFilterButton.addEventListener("click", populateTable);
+
+    // Load Table on Page Load
+    populateTable();
   </script>
 </body>
 </html>
