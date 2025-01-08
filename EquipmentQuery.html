@@ -1,1 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Filter Equipment Details</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background-color: #f4f7f6;
+      color: #333;
+    }
+    h1 {
+      color: #4CAF50;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      text-align: center;
+    }
+    button {
+      padding: 10px 15px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      margin: 10px;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    #filterResults {
+      margin-top: 20px;
+    }
+    input[type="date"], input[type="text"] {
+      margin: 10px 0;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      width: 100%;
+    }
+    table {
+      margin: 20px auto;
+      border-collapse: collapse;
+      width: 100%;
+    }
+    table, th, td {
+      border: 1px solid #ccc;
+    }
+    th, td {
+      padding: 10px;
+      text-align: left;
+    }
+    th {
+      background-color: #f0f0f0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Filter Equipment Details</h1>
+    <label for="filterRegNo">Reg. No:</label>
+    <input type="text" id="filterRegNo" placeholder="Enter Reg. No.">
+    <br>
+    <label for="startDate">Start Date:</label>
+    <input type="date" id="startDate" required>
+    <label for="endDate">End Date:</label>
+    <input type="date" id="endDate" required>
+    <br>
+    <button id="filterButton">Search</button>
+    <div id="filterResults"></div>
+  </div>
 
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
+    import { getFirestore, collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAXZgxM6PU-T3D2811KnBszblRWju7rv1Y",
+      authDomain: "dws-management.firebaseapp.com",
+      projectId: "dws-management",
+      storageBucket: "dws-management.firebasestorage.app",
+      messagingSenderId: "23827231923",
+      appId: "1:23827231923:web:97141b6d19c7cd109d2cc6",
+      measurementId: "G-L14GLJDYW7"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const filterRegNoInput = document.getElementById("filterRegNo");
+    const startDateInput = document.getElementById("startDate");
+    const endDateInput = document.getElementById("endDate");
+    const filterButton = document.getElementById("filterButton");
+    const filterResults = document.getElementById("filterResults");
+
+    // Filter data by Reg. No. and Date Range
+    filterButton.addEventListener("click", async () => {
+      const regNo = filterRegNoInput.value.trim();
+      const startDate = startDateInput.value;
+      const endDate = endDateInput.value;
+
+      if (!startDate || !endDate) {
+        alert("Please enter Start Date and End Date!");
+        return;
+      }
+
+      try {
+        const collectionRef = collection(db, "EquipmentsDaily");
+        const q = query(collectionRef, where("__name__", ">=", startDate), where("__name__", "<=", endDate));
+        const querySnapshot = await getDocs(q);
+
+        const results = [];
+        querySnapshot.forEach(docSnap => {
+          const data = docSnap.data();
+          const filtered = regNo
+            ? data.equipmentDetails.filter(item => item.regNo === regNo)
+            : data.equipmentDetails;
+          if (filtered.length) {
+            results.push(...filtered.map(item => ({ ...item, date: docSnap.id })));
+          }
+        });
+
+        if (results.length) {
+          displayResults(results);
+        } else {
+          filterResults.innerHTML = `<p>No data found for the selected criteria.</p>`;
+        }
+      } catch (error) {
+        console.error("Error filtering data:", error);
+        alert("Error filtering data. Please try again.");
+      }
+    });
+
+    // Display results in a table
+    function displayResults(results) {
+      let tableHtml = `
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Plant No.</th>
+              <th>Reg. No.</th>
+              <th>Equipment Details</th>
+              <th>Owner</th>
+              <th>Location</th>
+              <th>Working Hours</th>
+              <th>Idle</th>
+              <th>U/R</th>
+              <th>Remarks</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+
+      results.forEach(row => {
+        tableHtml += `
+          <tr>
+            <td>${row.date}</td>
+            <td>${row.plantNo}</td>
+            <td>${row.regNo}</td>
+            <td>${row.equipmentDetails}</td>
+            <td>${row.owner}</td>
+            <td>${row.location}</td>
+            <td>${row.workingHours}</td>
+            <td>${row.idle}</td>
+            <td>${row.ur}</td>
+            <td>${row.remarks}</td>
+          </tr>
+        `;
+      });
+
+      tableHtml += `</tbody></table>`;
+      filterResults.innerHTML = tableHtml;
+    }
+  </script>
+</body>
+</html>
