@@ -35,6 +35,14 @@
       font-size: 16px;
       width: 100%;
     }
+    .filter-input button {
+      margin-top: 10px;
+      padding: 8px;
+      font-size: 14px;
+      cursor: pointer;
+      border: none;
+      border-radius: 5px;
+    }
     .clear-filter {
       margin-top: 20px;
       text-align: center;
@@ -79,7 +87,6 @@
   </div>
 
   <script type="module">
-    // Import Firebase modules
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
     import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
 
@@ -94,7 +101,6 @@
       measurementId: "G-L14GLJDYW7"
     };
 
-    // Initialize Firebase
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
@@ -111,7 +117,7 @@
           const row = `
             <tr>
               <td>${data.plantNo || ""}</td>
-              <td>${data.regNo || ""}</td>
+              <td>${doc.id || ""}</td> <!-- Use document ID for Reg. No -->
               <td>${data.equipmentDetails || ""}</td>
               <td>${data.owner || ""}</td>
               <td>${data.location || ""}</td>
@@ -119,7 +125,14 @@
             </tr>
           `;
           tableBody.innerHTML += row;
-          equipmentData.push(data); // Store fetched data for filtering
+          equipmentData.push({
+            plantNo: data.plantNo || "",
+            regNo: doc.id || "", // Include the document ID
+            equipmentDetails: data.equipmentDetails || "",
+            owner: data.owner || "",
+            location: data.location || "",
+            remarks: data.remarks || ""
+          });
         });
       } catch (error) {
         console.error("Error fetching data: ", error);
@@ -138,21 +151,21 @@
     // Apply the filter
     function applyFilter() {
       const filterValue = document.getElementById("filterInput").value.toLowerCase();
-      const rows = tableBody.rows;
+      const rows = tableBody.querySelectorAll("tr");
 
-      for (let i = 0; i < rows.length; i++) {
-        const cellValue = rows[i].cells[currentColumn].textContent.toLowerCase();
-        rows[i].style.display = cellValue.includes(filterValue) ? "" : "none";
-      }
+      rows.forEach(row => {
+        const cellValue = row.cells[currentColumn]?.textContent.toLowerCase() || "";
+        row.style.display = cellValue.includes(filterValue) ? "" : "none";
+      });
     }
 
     // Clear the filter
     function clearFilter() {
-      const rows = tableBody.rows;
+      const rows = tableBody.querySelectorAll("tr");
 
-      for (let i = 0; i < rows.length; i++) {
-        rows[i].style.display = "";
-      }
+      rows.forEach(row => {
+        row.style.display = "";
+      });
 
       document.getElementById("filterInput").value = "";
       document.getElementById("filterInputContainer").style.display = "none";
