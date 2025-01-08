@@ -3,110 +3,42 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Equipment Management</title>
-  <script src="https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js"></script>
+  <title>Column Filtering Demo</title>
   <style>
     body {
       font-family: Arial, sans-serif;
-      background-color: #f4f7f6;
       margin: 20px;
     }
-
-    h1 {
-      text-align: center;
-      margin-bottom: 20px;
-      color: #333;
-    }
-
     table {
       width: 100%;
       border-collapse: collapse;
       margin-top: 20px;
-      background: white;
     }
-
     th, td {
-      padding: 15px;
+      padding: 10px;
       text-align: left;
       border: 1px solid #ddd;
-      font-size: 16px;
     }
-
     th {
-      background-color: #f8f9fa;
-      position: relative;
       cursor: pointer;
+      background-color: #f8f9fa;
     }
-
     th:hover {
       background-color: #e9ecef;
     }
-
-    .filter-arrow {
-      position: absolute;
-      right: 10px;
-      font-size: 14px;
-      color: #007bff;
-    }
-
-    tr:hover {
-      background-color: #f1f1f1;
-    }
-
-    .filter-arrow:hover {
-      color: #0056b3;
-    }
-
-    #dialog {
+    .filter-input {
       display: none;
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background-color: white;
-      border: 1px solid #ccc;
-      border-radius: 5px;
-      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-      padding: 20px;
-      width: 40%;
-      z-index: 1000;
+      margin-top: 10px;
     }
-
-    #dialog h3 {
-      margin: 0 0 20px 0;
-      text-align: center;
-      font-size: 18px;
-    }
-
-    #dialog input {
+    .filter-input input {
+      padding: 8px;
+      font-size: 16px;
       width: 100%;
-      padding: 10px;
-      font-size: 16px;
-      border: 1px solid #ccc;
-      border-radius: 5px;
     }
-
-    #dialog button {
-      margin-top: 20px;
-      padding: 10px 15px;
-      font-size: 16px;
-      background-color: #007bff;
-      color: white;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-
-    #dialog button:hover {
-      background-color: #0056b3;
-    }
-
     .clear-filter {
       margin-top: 20px;
       text-align: center;
     }
-
     .clear-filter button {
       padding: 10px;
       font-size: 16px;
@@ -116,129 +48,92 @@
       border-radius: 5px;
       cursor: pointer;
     }
-
     .clear-filter button:hover {
       background-color: #c62828;
     }
   </style>
 </head>
 <body>
-  <h1>Equipment Management</h1>
+  <h1>Column Filtering Demo</h1>
 
-  <table id="equipmentTable">
+  <table id="demoTable">
     <thead>
       <tr>
-        <th onclick="openDialog('plantNo')">Plant No <span class="filter-arrow">▼</span></th>
-        <th onclick="openDialog('regNo')">Reg. No <span class="filter-arrow">▼</span></th>
-        <th onclick="openDialog('equipmentDetails')">Equipment Details <span class="filter-arrow">▼</span></th>
-        <th onclick="openDialog('owner')">Owner <span class="filter-arrow">▼</span></th>
-        <th onclick="openDialog('location')">Location <span class="filter-arrow">▼</span></th>
-        <th onclick="openDialog('remarks')">Remarks <span class="filter-arrow">▼</span></th>
+        <th onclick="showFilter(0)">Plant No</th>
+        <th onclick="showFilter(1)">Reg. No</th>
+        <th onclick="showFilter(2)">Equipment Details</th>
+        <th onclick="showFilter(3)">Owner</th>
+        <th onclick="showFilter(4)">Location</th>
+        <th onclick="showFilter(5)">Remarks</th>
       </tr>
     </thead>
-    <tbody></tbody>
+    <tbody>
+      <tr>
+        <td>04/01.07/0010</td>
+        <td>71514</td>
+        <td>KOBELCO CRANE CKS2500</td>
+        <td>HIRED</td>
+        <td>TRAIN 11</td>
+        <td>IDLE DUE TO HEAVY WIND</td>
+      </tr>
+      <tr>
+        <td>04/01.04/0145</td>
+        <td>74558</td>
+        <td>KOBELCO CRANE CKS1350</td>
+        <td>CCC</td>
+        <td>TRAIN 09</td>
+        <td>STICKER EXPIRED</td>
+      </tr>
+      <tr>
+        <td>04/01.04/0147</td>
+        <td>74833</td>
+        <td>KOBELCO CRANE CKS1350</td>
+        <td>HIRED</td>
+        <td>TRAIN 10</td>
+        <td>IDLE DUE TO HEAVY WIND</td>
+      </tr>
+    </tbody>
   </table>
 
-  <div class="clear-filter">
+  <div class="filter-input" id="filterInputContainer">
+    <input type="text" id="filterInput" placeholder="Enter value to filter...">
+    <button onclick="applyFilter()">Apply Filter</button>
     <button onclick="clearFilter()">Clear Filter</button>
   </div>
 
-  <div id="dialog">
-    <h3>Filter Column</h3>
-    <input type="text" id="dialogInput" placeholder="Enter value to filter...">
-    <button onclick="applyFilter()">Apply Filter</button>
-    <button onclick="closeDialog()">Close</button>
-  </div>
+  <script>
+    let currentColumn = -1;
 
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
-    import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyAXZgxM6PU-T3D2811KnBszblRWju7rv1Y",
-      authDomain: "dws-management.firebaseapp.com",
-      projectId: "dws-management",
-      storageBucket: "dws-management.firebasestorage.app",
-      messagingSenderId: "23827231923",
-      appId: "1:23827231923:web:97141b6d19c7cd109d2cc6",
-      measurementId: "G-L14GLJDYW7"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-
-    let equipmentData = [];
-    let currentColumn = "";
-
-    async function fetchEquipmentData() {
-      const querySnapshot = await getDocs(collection(db, "Equipment"));
-      const tableBody = document.querySelector("#equipmentTable tbody");
-      tableBody.innerHTML = "";
-
-      querySnapshot.forEach(doc => {
-        const data = doc.data();
-        equipmentData.push({ ...data, regNo: doc.id });
-        const row = `<tr>
-          <td>${data.plantNo || ""}</td>
-          <td>${doc.id}</td>
-          <td>${data.equipmentDetails || ""}</td>
-          <td>${data.owner || ""}</td>
-          <td>${data.location || ""}</td>
-          <td>${data.remarks || ""}</td>
-        </tr>`;
-        tableBody.innerHTML += row;
-      });
-    }
-
-    function openDialog(column) {
-      currentColumn = column;
-      document.getElementById("dialog").style.display = "block";
-    }
-
-    function closeDialog() {
-      document.getElementById("dialog").style.display = "none";
+    function showFilter(columnIndex) {
+      currentColumn = columnIndex;
+      const filterInputContainer = document.getElementById('filterInputContainer');
+      filterInputContainer.style.display = 'block';
+      document.getElementById('filterInput').focus();
     }
 
     function applyFilter() {
-      const value = document.getElementById("dialogInput").value.toLowerCase();
-      const filteredData = equipmentData.filter(item =>
-        (item[currentColumn] || "").toLowerCase().includes(value)
-      );
+      const filterValue = document.getElementById('filterInput').value.toLowerCase();
+      const table = document.getElementById('demoTable');
+      const rows = table.tBodies[0].rows;
 
-      const tableBody = document.querySelector("#equipmentTable tbody");
-      tableBody.innerHTML = "";
-      filteredData.forEach(data => {
-        const row = `<tr>
-          <td>${data.plantNo || ""}</td>
-          <td>${data.regNo || ""}</td>
-          <td>${data.equipmentDetails || ""}</td>
-          <td>${data.owner || ""}</td>
-          <td>${data.location || ""}</td>
-          <td>${data.remarks || ""}</td>
-        </tr>`;
-        tableBody.innerHTML += row;
-      });
-
-      closeDialog();
+      for (let i = 0; i < rows.length; i++) {
+        const cellValue = rows[i].cells[currentColumn].textContent.toLowerCase();
+        rows[i].style.display = cellValue.includes(filterValue) ? '' : 'none';
+      }
     }
 
     function clearFilter() {
-      const tableBody = document.querySelector("#equipmentTable tbody");
-      tableBody.innerHTML = "";
-      equipmentData.forEach(data => {
-        const row = `<tr>
-          <td>${data.plantNo || ""}</td>
-          <td>${data.regNo || ""}</td>
-          <td>${data.equipmentDetails || ""}</td>
-          <td>${data.owner || ""}</td>
-          <td>${data.location || ""}</td>
-          <td>${data.remarks || ""}</td>
-        </tr>`;
-        tableBody.innerHTML += row;
-      });
-    }
+      const table = document.getElementById('demoTable');
+      const rows = table.tBodies[0].rows;
 
-    fetchEquipmentData();
+      for (let i = 0; i < rows.length; i++) {
+        rows[i].style.display = '';
+      }
+
+      document.getElementById('filterInput').value = '';
+      document.getElementById('filterInputContainer').style.display = 'none';
+      currentColumn = -1;
+    }
   </script>
 </body>
 </html>
