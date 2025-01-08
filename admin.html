@@ -113,6 +113,7 @@
         }
 
         let successCount = 0;
+        let failureCount = 0;
         const equipmentArray = [];
 
         for (const row of csvData) {
@@ -126,7 +127,7 @@
             idle = "",
             ur = "",
             remarks = ""
-          ] = row.map(value => value.trim() || "");
+          ] = row.map(value => value.trim() || ""); // Trim and ensure empty fields are set to ""
 
           if (regNo) {
             equipmentArray.push({
@@ -141,12 +142,15 @@
               remarks
             });
             successCount++;
+          } else {
+            failureCount++;
+            console.log("Skipped row due to missing Reg. No.:", row);
           }
         }
 
         try {
           const docRef = doc(db, "EquipmentsDaily", importDate);
-          await setDoc(docRef, { equipmentDetails: equipmentArray }, { merge: true });
+          await setDoc(docRef, { equipmentDetails: arrayUnion(...equipmentArray) }, { merge: true });
           importStatus.innerText = `Import Completed: ${successCount} entries added for ${importDate}.`;
         } catch (error) {
           console.error("Error importing data:", error);
