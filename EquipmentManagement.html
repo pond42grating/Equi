@@ -1,1 +1,227 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Equipment Management</title>
+  <script src="https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+    h1 {
+      color: #333;
+      text-align: center;
+    }
+    .search-container {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+    .search-container input {
+      padding: 10px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      margin-right: 10px;
+      width: 300px;
+    }
+    .search-container button {
+      padding: 10px;
+      font-size: 16px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .search-container button:hover {
+      background-color: #0056b3;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    table, th, td {
+      border: 1px solid #ccc;
+    }
+    th, td {
+      padding: 10px;
+      text-align: left;
+    }
+    th {
+      cursor: pointer;
+      background-color: #f4f4f4;
+    }
+    th:hover {
+      background-color: #ddd;
+    }
+    #dialog {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: white;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+      padding: 20px;
+      width: 50%;
+    }
+    #dialog h3 {
+      margin: 0 0 20px 0;
+      text-align: center;
+    }
+    #dialog input {
+      width: 100%;
+      padding: 10px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+    #dialog button {
+      margin-top: 20px;
+      padding: 10px 15px;
+      font-size: 16px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    #dialog button:hover {
+      background-color: #0056b3;
+    }
+  </style>
+</head>
+<body>
+  <h1>Equipment Management</h1>
+
+  <div class="search-container">
+    <input type="text" id="searchInput" placeholder="Search Equipment">
+    <button onclick="searchEquipment()">Search</button>
+  </div>
+
+  <table id="equipmentTable">
+    <thead>
+      <tr>
+        <th onclick="openDialog('plantNo')">Plant No</th>
+        <th onclick="openDialog('regNo')">Reg. No</th>
+        <th onclick="openDialog('details')">Equipment Details</th>
+        <th onclick="openDialog('owner')">Owner</th>
+        <th onclick="openDialog('location')">Location</th>
+        <th onclick="openDialog('remarks')">Remarks</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <div id="dialog">
+    <h3>Filter Column</h3>
+    <input type="text" id="dialogInput" placeholder="Enter value to filter">
+    <button onclick="applyFilter()">Apply Filter</button>
+    <button onclick="closeDialog()">Close</button>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
+    import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAXZgxM6PU-T3D2811KnBszblRWju7rv1Y",
+      authDomain: "dws-management.firebaseapp.com",
+      projectId: "dws-management",
+      storageBucket: "dws-management.firebasestorage.app",
+      messagingSenderId: "23827231923",
+      appId: "1:23827231923:web:97141b6d19c7cd109d2cc6",
+      measurementId: "G-L14GLJDYW7"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    let equipmentData = [];
+    let currentColumn = "";
+
+    async function fetchEquipmentData() {
+      const querySnapshot = await getDocs(collection(db, "Equipment"));
+      const tableBody = document.querySelector("#equipmentTable tbody");
+      tableBody.innerHTML = "";
+
+      querySnapshot.forEach(doc => {
+        const data = doc.data();
+        equipmentData.push(data);
+        const row = `<tr>
+          <td>${data.plantNo || ""}</td>
+          <td>${doc.id}</td>
+          <td>${data.details || ""}</td>
+          <td>${data.owner || ""}</td>
+          <td>${data.location || ""}</td>
+          <td>${data.remarks || ""}</td>
+        </tr>`;
+        tableBody.innerHTML += row;
+      });
+    }
+
+    function openDialog(column) {
+      currentColumn = column;
+      document.getElementById("dialog").style.display = "block";
+    }
+
+    function closeDialog() {
+      document.getElementById("dialog").style.display = "none";
+    }
+
+    function applyFilter() {
+      const value = document.getElementById("dialogInput").value.toLowerCase();
+      const filteredData = equipmentData.filter(item =>
+        (item[currentColumn] || "").toLowerCase().includes(value)
+      );
+
+      const tableBody = document.querySelector("#equipmentTable tbody");
+      tableBody.innerHTML = "";
+      filteredData.forEach(data => {
+        const row = `<tr>
+          <td>${data.plantNo || ""}</td>
+          <td>${data.regNo || ""}</td>
+          <td>${data.details || ""}</td>
+          <td>${data.owner || ""}</td>
+          <td>${data.location || ""}</td>
+          <td>${data.remarks || ""}</td>
+        </tr>`;
+        tableBody.innerHTML += row;
+      });
+
+      closeDialog();
+    }
+
+    function searchEquipment() {
+      const searchValue = document.getElementById("searchInput").value.toLowerCase();
+      const filteredData = equipmentData.filter(item =>
+        Object.values(item).some(val => (val || "").toLowerCase().includes(searchValue))
+      );
+
+      const tableBody = document.querySelector("#equipmentTable tbody");
+      tableBody.innerHTML = "";
+      filteredData.forEach(data => {
+        const row = `<tr>
+          <td>${data.plantNo || ""}</td>
+          <td>${data.regNo || ""}</td>
+          <td>${data.details || ""}</td>
+          <td>${data.owner || ""}</td>
+          <td>${data.location || ""}</td>
+          <td>${data.remarks || ""}</td>
+        </tr>`;
+        tableBody.innerHTML += row;
+      });
+    }
+
+    fetchEquipmentData();
+  </script>
+</body>
+</html>
