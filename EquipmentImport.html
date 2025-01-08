@@ -51,104 +51,141 @@
   </div>
 
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
-    import { getFirestore, collection, getDocs, deleteDoc, doc, setDoc } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
+  import { getFirestore, collection, getDocs, deleteDoc, doc, setDoc } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyAXZgxM6PU-T3D2811KnBszblRWju7rv1Y",
-      authDomain: "dws-management.firebaseapp.com",
-      projectId: "dws-management",
-      storageBucket: "dws-management.firebasestorage.app",
-      messagingSenderId: "23827231923",
-      appId: "1:23827231923:web:97141b6d19c7cd109d2cc6",
-      measurementId: "G-L14GLJDYW7"
-    };
+  const firebaseConfig = {
+    apiKey: "AIzaSyAXZgxM6PU-T3D2811KnBszblRWju7rv1Y",
+    authDomain: "dws-management.firebaseapp.com",
+    projectId: "dws-management",
+    storageBucket: "dws-management.firebasestorage.app",
+    messagingSenderId: "23827231923",
+    appId: "1:23827231923:web:97141b6d19c7cd109d2cc6",
+    measurementId: "G-L14GLJDYW7"
+  };
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
 
-    const csvFileInput = document.getElementById("csvFile");
-    const clearButton = document.getElementById("clearButton");
-    const importButton = document.getElementById("importButton");
-    const importStatus = document.getElementById("importStatus");
+  const csvFileInput = document.getElementById("csvFile");
+  const clearButton = document.getElementById("clearButton");
+  const importButton = document.getElementById("importButton");
+  const importStatus = document.getElementById("importStatus");
 
-    // Clear all documents in the Equipment collection
-    clearButton.addEventListener("click", async () => {
-      if (!confirm("Are you sure you want to clear all equipment data?")) return;
+  // Clear all documents in the Equipment collection
+  clearButton.addEventListener("click", async () => {
+    if (!confirm("Are you sure you want to clear all equipment data?")) return;
 
-      try {
-        const equipmentCollection = collection(db, "Equipment");
-        const snapshot = await getDocs(equipmentCollection);
+    try {
+      const equipmentCollection = collection(db, "Equipment");
+      const snapshot = await getDocs(equipmentCollection);
 
-        for (const docRef of snapshot.docs) {
-          await deleteDoc(doc(db, "Equipment", docRef.id));
-          console.log(`Deleted: ${docRef.id}`);
-        }
-
-        importStatus.style.color = "red";
-        importStatus.innerText = "All equipment data has been cleared.";
-      } catch (error) {
-        console.error("Error clearing equipment data:", error);
-        alert("Failed to clear equipment data. Please try again.");
+      for (const docRef of snapshot.docs) {
+        await deleteDoc(doc(db, "Equipment", docRef.id));
+        console.log(`Deleted: ${docRef.id}`);
       }
-    });
 
-    // Import CSV data into the Equipment collection
-    importButton.addEventListener("click", async () => {
-      const file = csvFileInput.files[0];
-      if (!file) {
-        alert("Please select a CSV file!");
+      importStatus.style.color = "red";
+      importStatus.innerText = "All equipment data has been cleared.";
+    } catch (error) {
+      console.error("Error clearing equipment data:", error);
+      alert("Failed to clear equipment data. Please try again.");
+    }
+  });
+
+  // Import CSV data into the Equipment collection
+  importButton.addEventListener("click", async () => {
+    const file = csvFileInput.files[0];
+    if (!file) {
+      alert("Please select a CSV file!");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async function (e) {
+      const csvData = e.target.result.split("\n").map(row => row.split(","));
+      const headerRow = csvData.shift(); // Remove the header row
+      if (headerRow.length < 9) {
+        alert(
+          "Invalid CSV format! Ensure it has 'Plant No, Reg. No., Equipment Details, Owner, Location, Working Hours, Idle, U/R, Remarks' headers."
+        );
         return;
       }
 
-      const reader = new FileReader();
-      reader.onload = async function (e) {
-        const csvData = e.target.result.split("\n").map(row => row.split(","));
-        const headerRow = csvData.shift(); // Remove the header row
-        if (headerRow.length < 6) {
-          alert("Invalid CSV format! Ensure it has 'Plant No, Reg. No., Equipment Details, Owner, Location, Remarks' headers.");
-          return;
-        }
+      let successCount = 0;
+      let failureCount = 0;
 
-        let successCount = 0;
-        let failureCount = 0;
-
-        for (const [plantNo, regNo, equipmentDetails, owner, location, remarks] of csvData) {
-          // Ensure all necessary columns have values before importing
-          if (plantNo && regNo && equipmentDetails && owner && location && remarks) {
-            try {
-              // Use Reg. No. as document ID
-              await setDoc(doc(db, "Equipment", regNo.trim()), {
-                plantNo: plantNo.trim(),
-                equipmentDetails: equipmentDetails.trim(),
-                owner: owner.trim(),
-                location: location.trim(),
-                remarks: remarks.trim() // Include the new "Remarks" field
-              });
-              console.log(`Imported: ${regNo}`);
-              successCount++;
-            } catch (error) {
-              console.error(`Error importing ${regNo}:`, error);
-              failureCount++;
-            }
-          } else {
+      for (const [
+        plantNo,
+        regNo,
+        equipmentDetails,
+        owner,
+        location,
+        workingHours,
+        idle,
+        ur,
+        remarks
+      ] of csvData) {
+        // Ensure all necessary columns have values before importing
+        if (
+          plantNo &&
+          regNo &&
+          equipmentDetails &&
+          owner &&
+          location &&
+          workingHours &&
+          idle &&
+          ur &&
+          remarks
+        ) {
+          try {
+            // Use Reg. No. as document ID
+            await setDoc(doc(db, "Equipment", regNo.trim()), {
+              plantNo: plantNo.trim(),
+              equipmentDetails: equipmentDetails.trim(),
+              owner: owner.trim(),
+              location: location.trim(),
+              workingHours: parseFloat(workingHours.trim()),
+              idle: parseFloat(idle.trim()),
+              ur: ur.trim(),
+              remarks: remarks.trim() // Include the new "Remarks" field
+            });
+            console.log(`Imported: ${regNo}`);
+            successCount++;
+          } catch (error) {
+            console.error(`Error importing ${regNo}:`, error);
             failureCount++;
-            console.log(`Skipped row due to missing data:`, { plantNo, regNo, equipmentDetails, owner, location, remarks });
           }
+        } else {
+          failureCount++;
+          console.log(`Skipped row due to missing data:`, {
+            plantNo,
+            regNo,
+            equipmentDetails,
+            owner,
+            location,
+            workingHours,
+            idle,
+            ur,
+            remarks
+          });
         }
+      }
 
-        // Show final import status
-        alert(`Import Completed: ${successCount} entries added successfully, ${failureCount} entries failed.`);
-        importStatus.style.color = "green";
-        importStatus.innerText = `Import Completed: ${successCount} successful, ${failureCount} failed.`;
-      };
+      // Show final import status
+      alert(
+        `Import Completed: ${successCount} entries added successfully, ${failureCount} entries failed.`
+      );
+      importStatus.style.color = "green";
+      importStatus.innerText = `Import Completed: ${successCount} successful, ${failureCount} failed.`;
+    };
 
-      reader.onerror = () => {
-        alert("Error reading the CSV file. Please try again.");
-      };
+    reader.onerror = () => {
+      alert("Error reading the CSV file. Please try again.");
+    };
 
-      reader.readAsText(file);
-    });
-  </script>
+    reader.readAsText(file);
+  });
+</script>
 </body>
 </html>
