@@ -8,59 +8,78 @@
     body {
       font-family: Arial, sans-serif;
       margin: 20px;
+      background-color: #f4f7f6;
+    }
+    h1 {
+      color: #333;
     }
     table {
       width: 100%;
       border-collapse: collapse;
+      margin-top: 20px;
     }
     th, td {
-      border: 1px solid #ccc;
-      padding: 10px;
+      border: 1px solid #ddd;
+      padding: 8px;
       text-align: left;
     }
     th {
-      position: relative;
       cursor: pointer;
     }
-    th::after {
-      content: " ▼";
-      font-size: 12px;
-      color: #888;
-      position: absolute;
-      right: 10px;
+    .filter-input {
+      width: 100%;
+      padding: 5px;
+      margin-top: 5px;
+      box-sizing: border-box;
     }
-    #clearFilter {
+    button {
       margin-top: 20px;
-      padding: 10px;
-      background-color: #4CAF50;
+      padding: 10px 15px;
+      background-color: #007BFF;
       color: white;
       border: none;
-      border-radius: 5px;
+      border-radius: 4px;
       cursor: pointer;
     }
-    #clearFilter:hover {
-      background-color: #45a049;
+    button:hover {
+      background-color: #0056b3;
     }
   </style>
 </head>
 <body>
   <h1>Equipment Management</h1>
-  <table id="equipmentTable">
+  
+  <table id="dataTable">
     <thead>
       <tr>
-        <th data-column="plantNo">Plant No</th>
-        <th data-column="regNo">Reg. No.</th>
-        <th data-column="equipmentDetails">Equipment Details</th>
-        <th data-column="owner">Owner</th>
-        <th data-column="location">Location</th>
-        <th data-column="remarks">Remarks</th>
+        <th>
+          Plant No
+          <input type="text" class="filter-input" data-column="0" placeholder="Filter Plant No">
+        </th>
+        <th>
+          Reg. No.
+          <input type="text" class="filter-input" data-column="1" placeholder="Filter Reg. No.">
+        </th>
+        <th>
+          Equipment Details
+          <input type="text" class="filter-input" data-column="2" placeholder="Filter Equipment Details">
+        </th>
+        <th>
+          Owner
+          <input type="text" class="filter-input" data-column="3" placeholder="Filter Owner">
+        </th>
+        <th>
+          Location
+          <input type="text" class="filter-input" data-column="4" placeholder="Filter Location">
+        </th>
       </tr>
     </thead>
     <tbody>
-      <!-- Data will be populated dynamically -->
+      <!-- Table rows will be dynamically populated -->
     </tbody>
   </table>
-  <button id="clearFilter">Clear Filters</button>
+
+  <button onclick="resetFilters()">Reset Filters</button>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
@@ -79,79 +98,71 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    const equipmentTable = document.getElementById("equipmentTable");
-    const clearFilterButton = document.getElementById("clearFilter");
-    let originalData = [];
+    const table = document.getElementById("dataTable");
+    const filters = Array.from(document.querySelectorAll(".filter-input"));
+    let visibleRows = []; // Keeps track of the rows currently displayed
 
-    // Fetch Equipment Data from Firestore
-    async function fetchEquipmentData() {
-      const equipmentCollection = collection(db, "Equipment");
-      const snapshot = await getDocs(equipmentCollection);
-      const data = [];
+    // Function to fetch data from Firestore and populate the table
+    async function loadData() {
+      try {
+        const querySnapshot = await getDocs(collection(db, "Equipment"));
+        const tbody = table.tBodies[0];
+        tbody.innerHTML = ""; // Clear existing rows
 
-      snapshot.forEach(doc => {
-        const rowData = doc.data();
-        rowData.regNo = doc.id; // Reg. No is the document ID
-        data.push(rowData);
-      });
+        querySnapshot.forEach(doc => {
+          const data = doc.data();
+          const row = document.createElement("tr");
+          row.innerHTML = `
+            <td>${data.plantNo || ""}</td>
+            <td>${doc.id}</td> <!-- Reg. No. is the document ID -->
+            <td>${data.equipmentDetails || ""}</td>
+            <td>${data.owner || ""}</td>
+            <td>${data.location || ""}</td>
+          `;
+          tbody.appendChild(row);
+        });
 
-      return data;
+        // Initialize visibleRows with all rows
+        visibleRows = Array.from(tbody.rows);
+      } catch (error) {
+        console.error("Error loading data:", error);
+        alert("Failed to load data from Firestore.");
+      }
     }
 
-    // Populate Table with Equipment Data
-    async function populateTable() {
-      const data = await fetchEquipmentData();
-      const tbody = equipmentTable.querySelector("tbody");
-      tbody.innerHTML = ""; // Clear existing rows
-      originalData = data; // Save original data for resetting filters
+    // Add event listeners to filter inputs
+    filters.forEach(input => {
+      input.addEventListener("input", function () {
+        const columnIndex = parseInt(this.getAttribute("data-column"));
+        const filterValue = this.value.toLowerCase();
 
-      data.forEach((row) => {
-        const newRow = tbody.insertRow();
-        newRow.innerHTML = `
-          <td>${row.plantNo || ""}</td>
-          <td>${row.regNo || ""}</td> <!-- Document ID -->
-          <td>${row.equipmentDetails || ""}</td>
-          <td>${row.owner || ""}</td>
-          <td>${row.location || ""}</td>
-          <td>${row.remarks || ""}</td>
-        `;
-      });
-    }
+        // Apply filter to currently visible rows
+        visibleRows = visibleRows.filter(row => {
+          const cellValue = row.cells[columnIndex].textContent.toLowerCase();
+          return cellValue.includes(filterValue);
+        });
 
-    // Event Listener for Filtering Columns
-    equipmentTable.querySelector("thead").addEventListener("click", (event) => {
-      const header = event.target.closest("th");
-      if (!header) return;
-
-      const column = header.dataset.column;
-      const input = prompt(`Filter by ${column}:`, "");
-      if (input === null || input === "") return;
-
-      const filteredData = originalData.filter((row) => {
-        const value = column === "regNo" ? row[column] : row[column]?.toString().toLowerCase();
-        return value?.includes(input.toLowerCase());
-      });
-
-      const tbody = equipmentTable.querySelector("tbody");
-      tbody.innerHTML = ""; // Clear existing rows
-      filteredData.forEach((row) => {
-        const newRow = tbody.insertRow();
-        newRow.innerHTML = `
-          <td>${row.plantNo || ""}</td>
-          <td>${row.regNo || ""}</td> <!-- Document ID -->
-          <td>${row.equipmentDetails || ""}</td>
-          <td>${row.owner || ""}</td>
-          <td>${row.location || ""}</td>
-          <td>${row.remarks || ""}</td>
-        `;
+        // Update the table with filtered rows
+        updateTable(visibleRows);
       });
     });
 
-    // Clear Filters and Reset Table
-    clearFilterButton.addEventListener("click", populateTable);
+    // Function to update the table with visible rows
+    function updateTable(rows) {
+      const tbody = table.tBodies[0];
+      tbody.innerHTML = ""; // Clear existing rows
+      rows.forEach(row => tbody.appendChild(row)); // Append filtered rows
+    }
 
-    // Load Table on Page Load
-    populateTable();
+    // Function to reset filters and show all rows
+    function resetFilters() {
+      filters.forEach(input => (input.value = ""));
+      visibleRows = Array.from(table.tBodies[0].rows); // Reset to all rows
+      loadData(); // Reload data from Firestore
+    }
+
+    // Load data on page load
+    loadData();
   </script>
 </body>
 </html>
