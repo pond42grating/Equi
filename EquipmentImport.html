@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -115,6 +114,7 @@
         let failureCount = 0;
 
         for (const [plantNo, regNo, equipmentDetails, owner, location, remarks] of csvData) {
+          // Ensure all necessary columns have values before importing
           if (plantNo && regNo && equipmentDetails && owner && location && remarks) {
             try {
               // Use Reg. No. as document ID
@@ -131,12 +131,14 @@
               console.error(`Error importing ${regNo}:`, error);
               failureCount++;
             }
+          } else {
+            failureCount++;
+            console.log(`Skipped row due to missing data:`, { plantNo, regNo, equipmentDetails, owner, location, remarks });
           }
         }
 
-        // Show alert with entry count
-        alert(`Import Completed: ${successCount} entries added successfully!`);
-
+        // Show final import status
+        alert(`Import Completed: ${successCount} entries added successfully, ${failureCount} entries failed.`);
         importStatus.style.color = "green";
         importStatus.innerText = `Import Completed: ${successCount} successful, ${failureCount} failed.`;
       };
