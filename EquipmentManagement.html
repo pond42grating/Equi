@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Column Filtering Demo</title>
+  <title>Equipment Management</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -54,9 +54,9 @@
   </style>
 </head>
 <body>
-  <h1>Column Filtering Demo</h1>
+  <h1>Equipment Management</h1>
 
-  <table id="demoTable">
+  <table id="equipmentTable">
     <thead>
       <tr>
         <th onclick="showFilter(0)">Plant No</th>
@@ -68,30 +68,7 @@
       </tr>
     </thead>
     <tbody>
-      <tr>
-        <td>04/01.07/0010</td>
-        <td>71514</td>
-        <td>KOBELCO CRANE CKS2500</td>
-        <td>HIRED</td>
-        <td>TRAIN 11</td>
-        <td>IDLE DUE TO HEAVY WIND</td>
-      </tr>
-      <tr>
-        <td>04/01.04/0145</td>
-        <td>74558</td>
-        <td>KOBELCO CRANE CKS1350</td>
-        <td>CCC</td>
-        <td>TRAIN 09</td>
-        <td>STICKER EXPIRED</td>
-      </tr>
-      <tr>
-        <td>04/01.04/0147</td>
-        <td>74833</td>
-        <td>KOBELCO CRANE CKS1350</td>
-        <td>HIRED</td>
-        <td>TRAIN 10</td>
-        <td>IDLE DUE TO HEAVY WIND</td>
-      </tr>
+      <!-- Rows will be dynamically populated -->
     </tbody>
   </table>
 
@@ -101,39 +78,89 @@
     <button onclick="clearFilter()">Clear Filter</button>
   </div>
 
-  <script>
+  <script type="module">
+    // Import Firebase modules
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
+    import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
+
+    // Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyAXZgxM6PU-T3D2811KnBszblRWju7rv1Y",
+      authDomain: "dws-management.firebaseapp.com",
+      projectId: "dws-management",
+      storageBucket: "dws-management.firebasestorage.app",
+      messagingSenderId: "23827231923",
+      appId: "1:23827231923:web:97141b6d19c7cd109d2cc6",
+      measurementId: "G-L14GLJDYW7"
+    };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const tableBody = document.querySelector("#equipmentTable tbody");
+    let equipmentData = [];
     let currentColumn = -1;
 
-    function showFilter(columnIndex) {
-      currentColumn = columnIndex;
-      const filterInputContainer = document.getElementById('filterInputContainer');
-      filterInputContainer.style.display = 'block';
-      document.getElementById('filterInput').focus();
+    // Fetch data from Firestore
+    async function fetchData() {
+      try {
+        const querySnapshot = await getDocs(collection(db, "Equipment"));
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          const row = `
+            <tr>
+              <td>${data.plantNo || ""}</td>
+              <td>${data.regNo || ""}</td>
+              <td>${data.equipmentDetails || ""}</td>
+              <td>${data.owner || ""}</td>
+              <td>${data.location || ""}</td>
+              <td>${data.remarks || ""}</td>
+            </tr>
+          `;
+          tableBody.innerHTML += row;
+          equipmentData.push(data); // Store fetched data for filtering
+        });
+      } catch (error) {
+        console.error("Error fetching data: ", error);
+        alert("Failed to fetch data from Firestore.");
+      }
     }
 
+    // Show filter input for the selected column
+    function showFilter(columnIndex) {
+      currentColumn = columnIndex;
+      const filterInputContainer = document.getElementById("filterInputContainer");
+      filterInputContainer.style.display = "block";
+      document.getElementById("filterInput").focus();
+    }
+
+    // Apply the filter
     function applyFilter() {
-      const filterValue = document.getElementById('filterInput').value.toLowerCase();
-      const table = document.getElementById('demoTable');
-      const rows = table.tBodies[0].rows;
+      const filterValue = document.getElementById("filterInput").value.toLowerCase();
+      const rows = tableBody.rows;
 
       for (let i = 0; i < rows.length; i++) {
         const cellValue = rows[i].cells[currentColumn].textContent.toLowerCase();
-        rows[i].style.display = cellValue.includes(filterValue) ? '' : 'none';
+        rows[i].style.display = cellValue.includes(filterValue) ? "" : "none";
       }
     }
 
+    // Clear the filter
     function clearFilter() {
-      const table = document.getElementById('demoTable');
-      const rows = table.tBodies[0].rows;
+      const rows = tableBody.rows;
 
       for (let i = 0; i < rows.length; i++) {
-        rows[i].style.display = '';
+        rows[i].style.display = "";
       }
 
-      document.getElementById('filterInput').value = '';
-      document.getElementById('filterInputContainer').style.display = 'none';
+      document.getElementById("filterInput").value = "";
+      document.getElementById("filterInputContainer").style.display = "none";
       currentColumn = -1;
     }
+
+    // Fetch and populate data on page load
+    fetchData();
   </script>
 </body>
 </html>
