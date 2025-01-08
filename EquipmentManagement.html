@@ -31,6 +31,7 @@
     .filter-input {
       display: none;
       position: absolute;
+      animation: fadeIn 0.3s ease;
       top: 30px;
       left: 0;
       z-index: 1000;
@@ -56,6 +57,16 @@
     button:hover {
       background-color: #0056b3;
     }
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: scale(0.9);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
   </style>
 </head>
 <body>
@@ -63,8 +74,8 @@
   <table id="equipmentTable">
     <thead>
       <tr>
-        <th data-column="regNo">Reg. No.</th>
         <th data-column="plantNo">Plant No.</th>
+        <th data-column="regNo">Reg. No.</th>
         <th data-column="equipmentDetails">Equipment Details</th>
         <th data-column="owner">Owner</th>
         <th data-column="location">Location</th>
@@ -102,7 +113,8 @@
     const filterInputDiv = document.getElementById("filterInput");
     const filterValueInput = document.getElementById("filterValue");
     let activeColumn = null;
-    let originalRows = [];
+    let currentRows = []; // Keeps track of currently filtered rows
+    let originalRows = []; // Original dataset
 
     // Fetch Data from Firestore and Populate the Table
     async function fetchData() {
@@ -115,8 +127,8 @@
         const data = doc.data();
         const row = document.createElement("tr");
         row.innerHTML = `
+          <td>${data.plantNo || ""}</td> <!-- Plant No. -->
           <td>${doc.id}</td> <!-- Reg. No. -->
-          <td>${data.plantNo || ""}</td>
           <td>${data.equipmentDetails || ""}</td>
           <td>${data.owner || ""}</td>
           <td>${data.location || ""}</td>
@@ -125,8 +137,9 @@
         tbody.appendChild(row);
       });
 
-      // Update the original rows for filtering
+      // Update the original and current rows for filtering
       originalRows = Array.from(tbody.rows);
+      currentRows = [...originalRows];
     }
 
     // Show Filter Input on Header Click
@@ -146,18 +159,20 @@
     // Apply Filter
     document.getElementById("applyFilter").addEventListener("click", () => {
       const filterValue = filterValueInput.value.toLowerCase();
-      const filteredRows = originalRows.filter((row) => {
-        const cell = row.querySelector(`[data-column="${activeColumn}"]`) || row.cells[table.querySelector(`th[data-column="${activeColumn}"]`).cellIndex];
-        return cell.textContent.toLowerCase().includes(filterValue);
+
+      currentRows = currentRows.filter((row) => {
+        const cell = row.querySelector(`td:nth-child(${getColumnIndex(activeColumn)})`);
+        return cell && cell.textContent.toLowerCase().includes(filterValue);
       });
 
-      updateTable(filteredRows);
+      updateTable(currentRows);
       filterInputDiv.style.display = "none";
     });
 
     // Clear Filter
     document.getElementById("clearFilter").addEventListener("click", () => {
-      updateTable(originalRows);
+      currentRows = [...originalRows];
+      updateTable(currentRows);
       filterInputDiv.style.display = "none";
     });
 
@@ -166,6 +181,12 @@
       const tbody = table.querySelector("tbody");
       tbody.innerHTML = "";
       rows.forEach((row) => tbody.appendChild(row));
+    }
+
+    // Get Column Index from Header Attribute
+    function getColumnIndex(column) {
+      const headers = table.querySelectorAll("thead th");
+      return Array.from(headers).findIndex((th) => th.getAttribute("data-column") === column) + 1;
     }
 
     // Fetch data on page load
