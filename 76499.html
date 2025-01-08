@@ -1,1 +1,126 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Equipment Logging</title>
+    <script src="https://www.gstatic.com/firebasejs/9.19.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.19.1/firebase-firestore.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f7f9;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 400px;
+            margin: auto;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            background-color: #fff;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        h2 {
+            text-align: center;
+            color: #333;
+        }
+        label {
+            display: block;
+            font-weight: bold;
+            margin-top: 15px;
+        }
+        input, select, button {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        button {
+            background-color: #007bff;
+            color: #fff;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Equipment Log</h2>
+        <label for="badgeNumber">Badge Number</label>
+        <input type="text" id="badgeNumber" placeholder="Enter Badge Number" required>
+
+        <label for="equipmentName">Equipment Name</label>
+        <input type="text" id="equipmentName" disabled>
+
+        <label for="plantNumber">Plant Number</label>
+        <input type="text" id="plantNumber" disabled>
+
+        <label for="issue">Select Issue</label>
+        <select id="issue">
+            <option value="breakdown">Breakdown</option>
+            <option value="sticker_expiry">Sticker Expiry</option>
+            <option value="send_to_pmv">Send to PMV</option>
+        </select>
+
+        <button id="saveButton">Save</button>
+    </div>
+
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_AUTH_DOMAIN",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_STORAGE_BUCKET",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        // Initialize Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // Get Equipment Number from QR Code URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const equipmentNumber = urlParams.get("number");
+        document.getElementById("equipmentName").value = equipmentNumber;
+        document.getElementById("plantNumber").value = `PLANT-${equipmentNumber}`;
+
+        // Save Data to Firestore
+        document.getElementById("saveButton").addEventListener("click", () => {
+            const badgeNumber = document.getElementById("badgeNumber").value.trim();
+            const issue = document.getElementById("issue").value;
+
+            if (!badgeNumber) {
+                alert("Badge number is required!");
+                return;
+            }
+
+            const data = {
+                badgeNumber,
+                equipmentNumber,
+                plantNumber: `PLANT-${equipmentNumber}`,
+                issue,
+                timestamp: new Date().toISOString()
+            };
+
+            db.collection("equipmentLogs")
+                .add(data)
+                .then(() => {
+                    alert("Log saved successfully!");
+                    document.getElementById("badgeNumber").value = "";
+                })
+                .catch((error) => {
+                    console.error("Error saving data: ", error);
+                });
+        });
+    </script>
+</body>
+</html>
