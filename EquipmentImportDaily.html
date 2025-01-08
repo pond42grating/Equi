@@ -1,1 +1,181 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Import Equipment Details</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background-color: #f4f7f6;
+      color: #333;
+    }
+    h1 {
+      color: #4CAF50;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      text-align: center;
+    }
+    button {
+      padding: 10px 15px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      margin: 10px;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    #importStatus {
+      margin-top: 20px;
+      font-size: 16px;
+    }
+    input[type="file"], input[type="date"] {
+      margin: 20px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Import Equipment Details</h1>
+
+    <!-- Date Input -->
+    <label for="importDate">Enter Date:</label>
+    <input type="date" id="importDate" required>
+    <br>
+
+    <!-- File Input -->
+    <input type="file" id="csvFile" accept=".csv">
+    <br>
+
+    <button id="importButton">Import CSV</button>
+    <button id="clearButton" style="background-color: red;">Clear Data</button>
+    <p id="importStatus"></p>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
+    import { getFirestore, collection, getDocs, deleteDoc, doc, setDoc, updateDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAXZgxM6PU-T3D2811KnBszblRWju7rv1Y",
+      authDomain: "dws-management.firebaseapp.com",
+      projectId: "dws-management",
+      storageBucket: "dws-management.firebasestorage.app",
+      messagingSenderId: "23827231923",
+      appId: "1:23827231923:web:97141b6d19c7cd109d2cc6",
+      measurementId: "G-L14GLJDYW7"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const csvFileInput = document.getElementById("csvFile");
+    const importDateInput = document.getElementById("importDate");
+    const importButton = document.getElementById("importButton");
+    const clearButton = document.getElementById("clearButton");
+    const importStatus = document.getElementById("importStatus");
+
+    // Clear all documents in the EquipmentsDaily collection
+    clearButton.addEventListener("click", async () => {
+      if (!confirm("Are you sure you want to clear all equipment data?")) return;
+
+      try {
+        const equipmentCollection = collection(db, "EquipmentsDaily");
+        const snapshot = await getDocs(equipmentCollection);
+
+        for (const docRef of snapshot.docs) {
+          await deleteDoc(doc(db, "EquipmentsDaily", docRef.id));
+          console.log(`Deleted: ${docRef.id}`);
+        }
+
+        importStatus.style.color = "red";
+        importStatus.innerText = "All equipment data has been cleared.";
+      } catch (error) {
+        console.error("Error clearing equipment data:", error);
+        alert("Failed to clear equipment data. Please try again.");
+      }
+    });
+
+    // Import CSV data into the EquipmentsDaily collection
+    importButton.addEventListener("click", async () => {
+      const file = csvFileInput.files[0];
+      const importDate = importDateInput.value;
+
+      if (!file || !importDate) {
+        alert("Please select a CSV file and enter a date!");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = async function (e) {
+        const csvData = e.target.result.split("\n").map(row => row.split(","));
+        const headerRow = csvData.shift(); // Remove the header row
+        if (headerRow.length < 9) {
+          alert(
+            "Invalid CSV format! Ensure it has 'Plant No, Reg. No., Equipment Details, Owner, Location, Working Hours, Idle, U/R, Remarks' headers."
+          );
+          return;
+        }
+
+        let successCount = 0;
+        let failureCount = 0;
+        const equipmentArray = [];
+
+        for (const row of csvData) {
+          const [
+            plantNo = "",
+            regNo = "",
+            equipmentDetails = "",
+            owner = "",
+            location = "",
+            workingHours = "",
+            idle = "",
+            ur = "",
+            remarks = ""
+          ] = row.map(value => value.trim() || ""); // Trim and ensure empty fields are set to ""
+
+          if (regNo) {
+            equipmentArray.push({
+              regNo,
+              plantNo,
+              equipmentDetails,
+              owner,
+              location,
+              workingHours: workingHours ? parseFloat(workingHours) : "",
+              idle: idle ? parseFloat(idle) : "",
+              ur,
+              remarks
+            });
+            successCount++;
+          } else {
+            failureCount++;
+            console.log("Skipped row due to missing Reg. No.:", row);
+          }
+        }
+
+        try {
+          const docRef = doc(db, "EquipmentsDaily", importDate);
+          await setDoc(docRef, { equipmentDetails: arrayUnion(...equipmentArray) }, { merge: true });
+          importStatus.innerText = `Import Completed: ${successCount} entries added for ${importDate}.`;
+        } catch (error) {
+          console.error("Error importing data:", error);
+          alert("Failed to import data. Please try again.");
+        }
+      };
+
+      reader.onerror = () => {
+        alert("Error reading the CSV file. Please try again.");
+      };
+
+      reader.readAsText(file);
+    });
+  </script>
+</body>
+</html>
