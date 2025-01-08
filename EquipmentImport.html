@@ -1,1 +1,152 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Import Equipment Details</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background-color: #f4f7f6;
+      color: #333;
+    }
+    h1 {
+      color: #4CAF50;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      text-align: center;
+    }
+    button {
+      padding: 10px 15px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      margin: 10px;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    #importStatus {
+      margin-top: 20px;
+      font-size: 16px;
+    }
+    input[type="file"] {
+      margin: 20px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Import Equipment Details</h1>
+    <input type="file" id="csvFile" accept=".csv">
+    <br>
+    <button id="importButton">Import CSV</button>
+    <button id="clearButton" style="background-color: red;">Clear Data</button>
+    <p id="importStatus"></p>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
+    import { getFirestore, collection, getDocs, deleteDoc, doc, setDoc } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAXZgxM6PU-T3D2811KnBszblRWju7rv1Y",
+      authDomain: "dws-management.firebaseapp.com",
+      projectId: "dws-management",
+      storageBucket: "dws-management.firebasestorage.app",
+      messagingSenderId: "23827231923",
+      appId: "1:23827231923:web:97141b6d19c7cd109d2cc6",
+      measurementId: "G-L14GLJDYW7"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const csvFileInput = document.getElementById("csvFile");
+    const clearButton = document.getElementById("clearButton");
+    const importButton = document.getElementById("importButton");
+    const importStatus = document.getElementById("importStatus");
+
+    // Clear all documents in the Equipment collection
+    clearButton.addEventListener("click", async () => {
+      if (!confirm("Are you sure you want to clear all equipment data?")) return;
+
+      try {
+        const equipmentCollection = collection(db, "Equipment");
+        const snapshot = await getDocs(equipmentCollection);
+
+        for (const docRef of snapshot.docs) {
+          await deleteDoc(doc(db, "Equipment", docRef.id));
+          console.log(`Deleted: ${docRef.id}`);
+        }
+
+        importStatus.style.color = "red";
+        importStatus.innerText = "All equipment data has been cleared.";
+      } catch (error) {
+        console.error("Error clearing equipment data:", error);
+        alert("Failed to clear equipment data. Please try again.");
+      }
+    });
+
+    // Import CSV data into the Equipment collection
+    importButton.addEventListener("click", async () => {
+      const file = csvFileInput.files[0];
+      if (!file) {
+        alert("Please select a CSV file!");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = async function (e) {
+        const csvData = e.target.result.split("\n").map(row => row.split(","));
+        const headerRow = csvData.shift(); // Remove the header row
+        if (headerRow.length < 6) {
+          alert("Invalid CSV format! Ensure it has 'Plant No, Reg. No., Equipment Details, Owner, Location, Remarks' headers.");
+          return;
+        }
+
+        let successCount = 0;
+        let failureCount = 0;
+
+        for (const [plantNo, regNo, equipmentDetails, owner, location, remarks] of csvData) {
+          if (plantNo && regNo && equipmentDetails && owner && location && remarks) {
+            try {
+              // Use Reg. No. as document ID
+              await setDoc(doc(db, "Equipment", regNo.trim()), {
+                plantNo: plantNo.trim(),
+                equipmentDetails: equipmentDetails.trim(),
+                owner: owner.trim(),
+                location: location.trim(),
+                remarks: remarks.trim() // Include the new "Remarks" field
+              });
+              console.log(`Imported: ${regNo}`);
+              successCount++;
+            } catch (error) {
+              console.error(`Error importing ${regNo}:`, error);
+              failureCount++;
+            }
+          }
+        }
+
+        // Show alert with entry count
+        alert(`Import Completed: ${successCount} entries added successfully!`);
+
+        importStatus.style.color = "green";
+        importStatus.innerText = `Import Completed: ${successCount} successful, ${failureCount} failed.`;
+      };
+
+      reader.onerror = () => {
+        alert("Error reading the CSV file. Please try again.");
+      };
+
+      reader.readAsText(file);
+    });
+  </script>
+</body>
+</html>
