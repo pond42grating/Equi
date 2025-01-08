@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -20,14 +19,6 @@
       display: flex;
       justify-content: center;
       margin-bottom: 20px;
-    }
-    .search-container input {
-      padding: 10px;
-      font-size: 16px;
-      border: 1px solid #ccc;
-      border-radius: 5px;
-      margin-right: 10px;
-      width: 300px;
     }
     .search-container button {
       padding: 10px;
@@ -52,6 +43,7 @@
     th, td {
       padding: 10px;
       text-align: left;
+      position: relative;
     }
     th {
       cursor: pointer;
@@ -59,6 +51,13 @@
     }
     th:hover {
       background-color: #ddd;
+    }
+    .filter-arrow {
+      font-size: 12px;
+      color: #007bff;
+      cursor: pointer;
+      position: absolute;
+      right: 10px;
     }
     #dialog {
       display: none;
@@ -97,29 +96,44 @@
     #dialog button:hover {
       background-color: #0056b3;
     }
+    .clear-filter {
+      margin-top: 20px;
+      text-align: center;
+    }
+    .clear-filter button {
+      padding: 10px;
+      font-size: 16px;
+      background-color: #f44336;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .clear-filter button:hover {
+      background-color: #c62828;
+    }
   </style>
 </head>
 <body>
   <h1>Equipment Management</h1>
 
-  <div class="search-container">
-    <input type="text" id="searchInput" placeholder="Search Equipment">
-    <button onclick="searchEquipment()">Search</button>
-  </div>
-
   <table id="equipmentTable">
     <thead>
       <tr>
-        <th onclick="openDialog('plantNo')">Plant No</th>
-        <th onclick="openDialog('regNo')">Reg. No</th>
-        <th onclick="openDialog('details')">Equipment Details</th>
-        <th onclick="openDialog('owner')">Owner</th>
-        <th onclick="openDialog('location')">Location</th>
-        <th onclick="openDialog('remarks')">Remarks</th>
+        <th onclick="openDialog('plantNo')">Plant No <span class="filter-arrow">▼</span></th>
+        <th onclick="openDialog('regNo')">Reg. No <span class="filter-arrow">▼</span></th>
+        <th onclick="openDialog('details')">Equipment Details <span class="filter-arrow">▼</span></th>
+        <th onclick="openDialog('owner')">Owner <span class="filter-arrow">▼</span></th>
+        <th onclick="openDialog('location')">Location <span class="filter-arrow">▼</span></th>
+        <th onclick="openDialog('remarks')">Remarks <span class="filter-arrow">▼</span></th>
       </tr>
     </thead>
     <tbody></tbody>
   </table>
+
+  <div class="clear-filter">
+    <button onclick="clearFilter()">Clear Filter</button>
+  </div>
 
   <div id="dialog">
     <h3>Filter Column</h3>
@@ -155,7 +169,7 @@
 
       querySnapshot.forEach(doc => {
         const data = doc.data();
-        equipmentData.push(data);
+        equipmentData.push({ ...data, regNo: doc.id });
         const row = `<tr>
           <td>${data.plantNo || ""}</td>
           <td>${doc.id}</td>
@@ -200,15 +214,10 @@
       closeDialog();
     }
 
-    function searchEquipment() {
-      const searchValue = document.getElementById("searchInput").value.toLowerCase();
-      const filteredData = equipmentData.filter(item =>
-        Object.values(item).some(val => (val || "").toLowerCase().includes(searchValue))
-      );
-
+    function clearFilter() {
       const tableBody = document.querySelector("#equipmentTable tbody");
       tableBody.innerHTML = "";
-      filteredData.forEach(data => {
+      equipmentData.forEach(data => {
         const row = `<tr>
           <td>${data.plantNo || ""}</td>
           <td>${data.regNo || ""}</td>
