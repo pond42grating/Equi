@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Import and Clear Equipment Details</title>
+  <title>Import and Manage Equipment Details</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -67,7 +67,7 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
-    import { getFirestore, collection, getDocs, deleteDoc, doc, query, where } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, deleteDoc, doc, getDoc, updateDoc, setDoc, arrayUnion, query, where } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAXZgxM6PU-T3D2811KnBszblRWju7rv1Y",
@@ -91,6 +91,12 @@
     const importStatus = document.getElementById("importStatus");
     const clearStatus = document.getElementById("clearStatus");
 
+    // Debug Helper
+    function logError(message, error) {
+      console.error(message, error);
+      alert(`Error: ${message}\nCheck the console for details.`);
+    }
+
     // Import CSV data into the EquipmentsDaily collection
     importButton.addEventListener("click", async () => {
       const file = csvFileInput.files[0];
@@ -103,58 +109,61 @@
 
       const reader = new FileReader();
       reader.onload = async function (e) {
-        const csvData = e.target.result.split("\n").map(row => row.split(","));
-        const headerRow = csvData.shift(); // Remove the header row
-        if (headerRow.length < 9) {
-          alert(
-            "Invalid CSV format! Ensure it has 'Plant No, Reg. No., Equipment Details, Owner, Location, Working Hours, Idle, U/R, Remarks' headers."
-          );
-          return;
-        }
-
-        let successCount = 0;
-        let failureCount = 0;
-        const equipmentArray = [];
-
-        for (const row of csvData) {
-          const [
-            plantNo = "",
-            regNo = "",
-            equipmentDetails = "",
-            owner = "",
-            location = "",
-            workingHours = "",
-            idle = "",
-            ur = "",
-            remarks = ""
-          ] = row.map(value => value.trim() || ""); // Trim and ensure empty fields are set to ""
-
-          if (regNo) {
-            equipmentArray.push({
-              regNo,
-              plantNo,
-              equipmentDetails,
-              owner,
-              location,
-              workingHours: workingHours ? parseFloat(workingHours) : "",
-              idle: idle ? parseFloat(idle) : "",
-              ur,
-              remarks
-            });
-            successCount++;
-          } else {
-            failureCount++;
-            console.log("Skipped row due to missing Reg. No.:", row);
-          }
-        }
-
         try {
+          const csvData = e.target.result.split("\n").map(row => row.split(","));
+          const headerRow = csvData.shift(); // Remove the header row
+          if (headerRow.length < 9) {
+            alert("Invalid CSV format! Ensure proper headers.");
+            return;
+          }
+
+          let successCount = 0;
+          const equipmentArray = [];
+
+          for (const row of csvData) {
+            const [
+              plantNo = "",
+              regNo = "",
+              equipmentDetails = "",
+              owner = "",
+              location = "",
+              workingHours = "",
+              idle = "",
+              ur = "",
+              remarks = ""
+            ] = row.map(value => value.trim() || "");
+
+            if (regNo) {
+              equipmentArray.push({
+                regNo,
+                plantNo,
+                equipmentDetails,
+                owner,
+                location,
+                workingHours: workingHours ? parseFloat(workingHours) : "",
+                idle: idle ? parseFloat(idle) : "",
+                ur,
+                remarks
+              });
+              successCount++;
+            } else {
+              console.log("Skipped row due to missing Reg. No.:", row);
+            }
+          }
+
           const docRef = doc(db, "EquipmentsDaily", importDate);
-          await setDoc(docRef, { equipmentDetails: arrayUnion(...equipmentArray) }, { merge: true });
+          const docSnap = await getDoc(docRef);
+
+          if (docSnap.exists()) {
+            await updateDoc(docRef, { equipmentDetails: arrayUnion(...equipmentArray) });
+          } else {
+            await setDoc(docRef, { equipmentDetails: equipmentArray });
+          }
+
+          importStatus.style.color = "green";
           importStatus.innerText = `Import Completed: ${successCount} entries added for ${importDate}.`;
         } catch (error) {
-          console.error("Error importing data:", error);
-          alert("Failed to import data. Please try again.");
+          logError("Failed to import data.", error);
         }
       };
 
@@ -196,8 +205,7 @@
         clearStatus.style.color = "green";
         clearStatus.innerText = `Successfully cleared ${deleteCount} entries between ${startDate} and ${endDate}.`;
       } catch (error) {
-        console.error("Error clearing data:", error);
-        alert("Failed to clear data in the specified range. Please try again.");
+        logError("Failed to clear data in the specified range.", error);
       }
     });
   </script>
