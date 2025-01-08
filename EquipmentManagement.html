@@ -22,25 +22,27 @@
       border: 1px solid #ddd;
       padding: 8px;
       text-align: left;
+      position: relative;
     }
     th {
       cursor: pointer;
-      position: relative;
+      background-color: #f8f9fa;
     }
-    th .filter-input {
+    .filter-input {
       display: none;
       position: absolute;
       top: 30px;
       left: 0;
       z-index: 1000;
       background-color: #fff;
-      padding: 5px;
+      padding: 10px;
       border: 1px solid #ddd;
       box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.2);
     }
     .filter-input input {
+      width: 200px;
       margin-bottom: 5px;
-      width: 150px;
+      padding: 5px;
     }
     button {
       margin-top: 20px;
@@ -48,7 +50,7 @@
       background-color: #007BFF;
       color: white;
       border: none;
-      border-radius: 4px;
+      border-radius: 5px;
       cursor: pointer;
     }
     button:hover {
@@ -58,60 +60,26 @@
 </head>
 <body>
   <h1>Equipment Management</h1>
-  
-  <table id="dataTable">
+  <table id="equipmentTable">
     <thead>
       <tr>
-        <th>
-          Plant No
-          <div class="filter-input">
-            <input type="text" placeholder="Filter Plant No" data-column="0">
-            <button onclick="applyFilter(0)">OK</button>
-          </div>
-        </th>
-        <th>
-          Reg. No.
-          <div class="filter-input">
-            <input type="text" placeholder="Filter Reg. No" data-column="1">
-            <button onclick="applyFilter(1)">OK</button>
-          </div>
-        </th>
-        <th>
-          Equipment Details
-          <div class="filter-input">
-            <input type="text" placeholder="Filter Equipment Details" data-column="2">
-            <button onclick="applyFilter(2)">OK</button>
-          </div>
-        </th>
-        <th>
-          Owner
-          <div class="filter-input">
-            <input type="text" placeholder="Filter Owner" data-column="3">
-            <button onclick="applyFilter(3)">OK</button>
-          </div>
-        </th>
-        <th>
-          Location
-          <div class="filter-input">
-            <input type="text" placeholder="Filter Location" data-column="4">
-            <button onclick="applyFilter(4)">OK</button>
-          </div>
-        </th>
-        <th>
-          Remarks
-          <div class="filter-input">
-            <input type="text" placeholder="Filter Remarks" data-column="5">
-            <button onclick="applyFilter(5)">OK</button>
-          </div>
-        </th>
+        <th data-column="regNo">Reg. No.</th>
+        <th data-column="plantNo">Plant No.</th>
+        <th data-column="equipmentDetails">Equipment Details</th>
+        <th data-column="owner">Owner</th>
+        <th data-column="location">Location</th>
+        <th data-column="remarks">Remarks</th>
       </tr>
     </thead>
     <tbody>
-      <!-- Table rows will be dynamically populated -->
+      <!-- Dynamic rows will be populated here -->
     </tbody>
   </table>
-
-  <button onclick="resetFilters()">Reset Filters</button>
+  <div id="filterInput" class="filter-input">
+    <input type="text" id="filterValue" placeholder="Enter filter value">
+    <button id="applyFilter">OK</button>
+    <button id="clearFilter" style="background-color: red;">Clear</button>
+  </div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
@@ -130,79 +98,78 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    const table = document.getElementById("dataTable");
-    const tbody = table.tBodies[0];
-    const headers = table.querySelectorAll("th");
-    let visibleRows = []; // Tracks rows currently displayed
+    const table = document.getElementById("equipmentTable");
+    const filterInputDiv = document.getElementById("filterInput");
+    const filterValueInput = document.getElementById("filterValue");
+    let activeColumn = null;
+    let originalRows = [];
 
-    // Function to fetch and populate data
-    async function loadData() {
-      try {
-        const querySnapshot = await getDocs(collection(db, "Equipment"));
-        tbody.innerHTML = ""; // Clear table
+    // Fetch Data from Firestore and Populate the Table
+    async function fetchData() {
+      const equipmentCollection = collection(db, "Equipment");
+      const snapshot = await getDocs(equipmentCollection);
+      const tbody = table.querySelector("tbody");
+      tbody.innerHTML = ""; // Clear existing rows
 
-        querySnapshot.forEach(doc => {
-          const data = doc.data();
-          const row = document.createElement("tr");
-          row.innerHTML = `
-            <td>${data.plantNo || ""}</td>
-            <td>${doc.id}</td> <!-- Reg. No. is the document ID -->
-            <td>${data.equipmentDetails || ""}</td>
-            <td>${data.owner || ""}</td>
-            <td>${data.location || ""}</td>
-            <td>${data.remarks || ""}</td>
-          `;
-          tbody.appendChild(row);
-        });
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${doc.id}</td> <!-- Reg. No. -->
+          <td>${data.plantNo || ""}</td>
+          <td>${data.equipmentDetails || ""}</td>
+          <td>${data.owner || ""}</td>
+          <td>${data.location || ""}</td>
+          <td>${data.remarks || ""}</td>
+        `;
+        tbody.appendChild(row);
+      });
 
-        // Initialize visibleRows
-        visibleRows = Array.from(tbody.rows);
-      } catch (error) {
-        console.error("Error loading data:", error);
-        alert("Failed to load data from Firestore.");
-      }
+      // Update the original rows for filtering
+      originalRows = Array.from(tbody.rows);
     }
 
-    // Function to show filter input
-    headers.forEach((header, index) => {
-      header.addEventListener("click", () => {
-        const filterDiv = header.querySelector(".filter-input");
-        if (filterDiv.style.display === "block") {
-          filterDiv.style.display = "none";
-        } else {
-          document.querySelectorAll(".filter-input").forEach(div => (div.style.display = "none"));
-          filterDiv.style.display = "block";
-        }
-      });
+    // Show Filter Input on Header Click
+    table.querySelector("thead").addEventListener("click", (event) => {
+      const target = event.target;
+      if (target.tagName !== "TH") return;
+
+      const rect = target.getBoundingClientRect();
+      filterInputDiv.style.display = "block";
+      filterInputDiv.style.top = `${rect.bottom + window.scrollY}px`;
+      filterInputDiv.style.left = `${rect.left + window.scrollX}px`;
+
+      activeColumn = target.getAttribute("data-column");
+      filterValueInput.value = "";
     });
 
-    // Apply filter
-    function applyFilter(columnIndex) {
-      const filterValue = headers[columnIndex].querySelector("input").value.toLowerCase();
-
-      visibleRows = visibleRows.filter(row => {
-        const cellValue = row.cells[columnIndex].textContent.toLowerCase();
-        return cellValue.includes(filterValue);
+    // Apply Filter
+    document.getElementById("applyFilter").addEventListener("click", () => {
+      const filterValue = filterValueInput.value.toLowerCase();
+      const filteredRows = originalRows.filter((row) => {
+        const cell = row.querySelector(`[data-column="${activeColumn}"]`) || row.cells[table.querySelector(`th[data-column="${activeColumn}"]`).cellIndex];
+        return cell.textContent.toLowerCase().includes(filterValue);
       });
 
-      updateTable(visibleRows);
-      document.querySelectorAll(".filter-input").forEach(div => (div.style.display = "none"));
-    }
+      updateTable(filteredRows);
+      filterInputDiv.style.display = "none";
+    });
 
-    // Update table with visible rows
+    // Clear Filter
+    document.getElementById("clearFilter").addEventListener("click", () => {
+      updateTable(originalRows);
+      filterInputDiv.style.display = "none";
+    });
+
+    // Update Table Rows
     function updateTable(rows) {
+      const tbody = table.querySelector("tbody");
       tbody.innerHTML = "";
-      rows.forEach(row => tbody.appendChild(row));
+      rows.forEach((row) => tbody.appendChild(row));
     }
 
-    // Reset all filters
-    function resetFilters() {
-      document.querySelectorAll(".filter-input input").forEach(input => (input.value = ""));
-      loadData(); // Reload original data
-    }
-
-    // Load data on page load
-    loadData();
+    // Fetch data on page load
+    fetchData();
   </script>
 </body>
 </html>
